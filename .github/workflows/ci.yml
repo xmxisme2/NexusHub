@@ -1,0 +1,101 @@
+name: NexusHub CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  CI_DB_PASSWORD: nexushub-ci-${{ github.run_id }}
+
+jobs:
+  contract-check:
+    name: Contract and documentation checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Regenerate contracts
+        run: python doc/tooling/generate_contracts.py
+      - name: Validate OpenAPI structure and frozen rules
+        run: python doc/tooling/validate_contracts.py
+      - name: Check local Markdown links
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          bad=[]
+          for path in Path('doc').rglob('*.md'):
+              for match in re.finditer(r'\]\(([^)#]+)\)', path.read_text(encoding='utf-8')):
+                  ref=match.group(1)
+                  if ref.startswith(('http://','https://')):
+                      continue
+                  if not (path.parent/ref).resolve().exists():
+                      bad.append(f'{path}:{ref}')
+          if bad:
+              raise SystemExit('\n'.join(bad))
+          print('Markdown links passed')
+          PY
+      - name: Check database artifacts exist
+        run: test -s doc/database/schema.sql && test -s doc/database/seed-test.sql
+      - name: Validate database schema and seed
+        run: python doc/tooling/validate_database.py
+
+  database:
+    name: MySQL schema integration check
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p${{ env.CI_DB_PASSWORD }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply schema and seed to an empty database
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p"${CI_DB_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS nexushub CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p"${CI_DB_PASSWORD}" nexushub < doc/database/schema.sql
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p"${CI_DB_PASSWORD}" nexushub < doc/database/seed-test.sql
+      - name: Verify tables and seed rows
+        run: |
+          test "$(mysql --batch --skip-column-names --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p"${CI_DB_PASSWORD}" nexushub -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='nexushub'")" = "13"
+          test "$(mysql --batch --skip-column-names --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p"${CI_DB_PASSWORD}" nexushub -e "SELECT COUNT(*) FROM puzzle WHERE deleted=0")" = "4"
+
+  backend:
+    name: Java backend checks
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('**/pom.xml') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B -ntp -f backend/pom.xml clean test
+
+  frontend:
+    name: Vue frontend checks
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('**/package.json') != '' && hashFiles('**/package-lock.json') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend

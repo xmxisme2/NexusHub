@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: nexushub-backend
+  datasource:
+    url: ${NEXUSHUB_DB_URL:jdbc:mysql://localhost:3306/nexushub?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${NEXUSHUB_DB_USERNAME:root}
+    password: ${NEXUSHUB_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+mybatis:
+  mapper-locations: classpath:/mapper/**/*.xml
+  type-aliases-package: com.nexushub.puzzle.persistence
+  configuration:
+    map-underscore-to-camel-case: true
+server:
+  port: 8080
+nexushub:
+  security:
+    # 本地 HTTP 测试保持 false；生产 HTTPS 必须设置 NEXUSHUB_COOKIE_SECURE=true。
+    cookie-secure: ${NEXUSHUB_COOKIE_SECURE:false}
+  solver:
+    max-concurrency: ${NEXUSHUB_SOLVER_MAX_CONCURRENCY:5}
+    dispatch-delay-ms: ${NEXUSHUB_SOLVER_DISPATCH_DELAY_MS:500}

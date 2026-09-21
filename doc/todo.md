@@ -1,0 +1,42 @@
+# 待办与风险
+
+- [x] 确认 OpsDesk 当前入口为 `https://www.xmxisme.com/opsdesk/`，门户以新标签页外链打开；SSO、健康探测和代理仍延后。
+- [x] 确认两人独立对抗、完全明牌、先出完手牌者获胜、用户/机器人先后手可配置。
+- [x] 确认保留门户首页；OpsDesk 延后。
+- [x] 确认标准牌型保留，四带二固定不可出，其他牌型按正常斗地主规则开放。
+- [x] 确认双人可 PASS、首手必须出牌、先手最多 20 张、后手最多 17 张、双方非空、同点数最多 4 张；四带二不在 CLASSIC_V1。
+- [x] 确认“必胜”采用覆盖对手多分支的严格证明；UNKNOWN 不显示胜方，最多展示 5 条已验证路线。
+- [x] 固化 CLASSIC_V1：四带二固定不可出，其他牌型按标准斗地主规则开放；不提供 disabledTypes 配置。
+- [x] 通过测试种子加入 L002～L004 可复核残局，逐步扩充基准样例。
+- [x] 在 Docker `nexushub-mysql`（MySQL 8.4）中执行 `doc/database/schema.sql` 和 `doc/database/seed-test.sql`，验证复合外键、CHECK、排序索引和迁移顺序；库名为 `nexushub`。
+- [x] 接入 OpenAPI 结构与规则校验、SQL 静态/空库校验、规则/JUnit/前端构建 CI；初版不加入性能指标展示。
+- [x] 完成 Figma 登录和桌面通用状态/组件页；继续补齐发布、分析终态、题库空/失败、账号操作状态。
+- [ ] 不纳入本轮移动端页面和移动端交互；待桌面版稳定后另立范围。
+- [ ] 初版仅验证求解线程、内存/超时保护和任务取消；性能指标展示与复杂 P95 基准延后。
+- [x] 明确首个管理员通过部署命令从环境/交互输入安全初始化，不写默认密码。
+- [ ] 按 [feature-gap-plan.md](feature-gap-plan.md) 冻结账号、版本、任务、证明、审计和桌面状态契约。
+- [x] 创建 Java 21 Spring Boot 后端与 Vue 3/Vite 门户骨架，加入双人手牌不变量校验和 `/api/health`。
+- [x] 落地题库搜索、详情、校验、保存草稿、发布接口骨架，以及桌面题库列表页和空态。
+- [x] 将题库 Service 替换为 MyBatis Mapper、事务和 `puzzle`/`puzzle_version` 版本指针操作。
+- [x] 在 Docker 测试库加入 L001～L004 四个可复核小残局样例。
+- [x] 接入登录会话后的 ownerId、管理员发布权限和题库对象级权限校验。
+- [x] 完成桌面门户、登录、题库列表、残局详情校验页以及加载/空态/失败重试。
+- [x] 完成最小明牌对局闭环：创建、详情、出牌、PASS、服务端判胜、行动事件和桌面牌桌。
+- [x] 完成真实牌面、点击选牌、前后端双重出牌校验、对局重开和返回残局库。
+- [x] 参考 OpsDesk 引入 Maven Wrapper，并在 JDK 21 下通过 `backend\\mvnw.cmd -o clean test`。
+- [x] 统一 Docker Compose 运行配置：MySQL、Spring Boot、Nginx/Vue 前端全部容器化。
+- [x] 执行 `docker compose build` 与 `docker compose up -d`，验证容器内健康检查、登录、题库查询和建局闭环；后续每次环境变更继续回归。
+- [x] 生成前端 lockfile 并通过 `npm run typecheck`、`npm run build`。
+- [x] 启动 Docker Desktop Linux 引擎并重新执行容器回归；MySQL healthy、后端健康检查 200、前端 HTTP 200。
+- [ ] 将单实例内存会话替换为 Redis/共享会话，并补充幂等记录、审计日志和对局权限。
+- [x] 建立密码 BCrypt、Cookie Secure 配置和 Nginx 安全响应头基线；生产仍需 Secret、HTTPS、共享会话和登录限流。
+- [x] 实现 BOT Worker V1、启发式出牌/PASS 和合法行动查询（含 PASS）。
+- [x] 实现 V1 同步提示（规则合法建议、UNKNOWN 语义、hintCount）和当前对局重开。
+- [x] 实现弃局（保留行动历史、版本 CAS 和 ABANDONED 状态）。
+- [x] 实现对局复盘接口与桌面时间线（读取当前对局初始快照和分页行动事件）。
+- [x] 接入 `MINIMAX_V1` 证明 Worker；启动时为已发布残局补建任务，最多并发 5 个，预算耗尽标记 UNKNOWN。
+- [x] 增加残局可配置入库页面（新建/编辑草稿、牌量校验、服务端保存）。
+- [x] 增加残局逻辑删除/恢复与重复局面检测；重复检测包含已删除版本，命中时返回原题目标题和版本引用以复用既有证明。
+- [x] 题库默认展示本人草稿并提供已发布/管理范围切换；修复新建残局无法在题库看到的问题。
+- [x] 接入 `OPTIMAL` 对局逐回合实时 Minimax；TEST 局面已验证为 BOT 必胜，预算不足时进入 `NEEDS_PROOF`，不会退回启发式。
+- [ ] 实现持久化幂等记录和 OPTIMAL 多分支策略 DAG；当前 OPTIMAL 已按回合实时执行带预算 Minimax，证明任务仍用于独立结果展示。

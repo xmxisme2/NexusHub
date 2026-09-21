@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nexushub.identity.persistence.UserMapper">
+  <sql id="columns">id,username,display_name,password_hash,role,status,row_version,credential_version</sql>
+  <select id="findByUsername" resultType="com.nexushub.identity.persistence.UserRow">
+    SELECT <include refid="columns"/> FROM sys_user WHERE username=#{username} AND deleted=0 LIMIT 1
+  </select>
+  <select id="findById" resultType="com.nexushub.identity.persistence.UserRow">
+    SELECT <include refid="columns"/> FROM sys_user WHERE id=#{id} AND deleted=0 LIMIT 1
+  </select>
+  <select id="search" resultType="com.nexushub.identity.persistence.UserRow">
+    SELECT <include refid="columns"/> FROM sys_user WHERE deleted=0
+    <if test="keyword != null and keyword != ''">AND (username LIKE CONCAT('%',#{keyword},'%') OR display_name LIKE CONCAT('%',#{keyword},'%'))</if>
+    <if test="status != null and status != ''">AND status=#{status}</if>
+    ORDER BY update_time DESC,id DESC
+  </select>
+  <select id="nextId" resultType="long">SELECT COALESCE(MAX(id),0)+1 FROM sys_user</select>
+  <insert id="insert">INSERT INTO sys_user(id,create_time,update_time,create_by,update_by,deleted,username,display_name,password_hash,role,status,row_version,credential_version) VALUES(#{id},CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3),#{id},#{id},0,#{username},#{displayName},#{passwordHash},#{role},'ENABLED',0,0)</insert>
+  <update id="updateStatus">UPDATE sys_user SET status=#{status},row_version=row_version+1,credential_version=credential_version+1,update_time=CURRENT_TIMESTAMP(3) WHERE id=#{id} AND row_version=#{expectedRowVersion} AND deleted=0</update>
+  <update id="resetPassword">UPDATE sys_user SET password_hash=#{passwordHash},row_version=row_version+1,credential_version=credential_version+1,update_time=CURRENT_TIMESTAMP(3) WHERE id=#{id} AND row_version=#{expectedRowVersion} AND deleted=0</update>
+  <select id="countEnabledAdmins" resultType="int">SELECT COUNT(1) FROM sys_user WHERE deleted=0 AND role='ADMIN' AND status='ENABLED'</select>
+</mapper>

@@ -1,0 +1,7 @@
+services:
+  nexushub-backend:
+    environment:
+      NEXUSHUB_DB_PASSWORD: change-me-locally
+  nexushub-frontend:
+    ports:
+      - "5173:80"

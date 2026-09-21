@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nexushub.puzzle.persistence.PuzzleMapper">
+  <!-- 证明必须匹配展示版本的完整局面及当前引擎；后续 UNKNOWN 不覆盖已有严格证明。 -->
+  <sql id="columns">
+    <bind name="proofSolverVersion" value="@com.nexushub.common.constants.AnalysisConstants@SOLVER_VERSION"/>
+    p.id,p.owner_id,p.deleted,p.status,p.row_version,p.latest_version_id,p.published_version_id,
+    v.id AS version_id,v.version_no,v.title,v.description,CAST(v.tags AS CHAR) AS tags_json,
+    v.difficulty,CAST(v.allowed_first_seats AS CHAR) AS allowed_first_seats_json,
+    CAST(v.initial_state AS CHAR) AS initial_state_json,v.state_hash,
+    (SELECT sr.winner_side
+     FROM solve_task st JOIN solve_result sr ON sr.task_id=st.id AND sr.deleted=0
+     WHERE st.puzzle_version_id=v.id AND st.deleted=0
+       AND st.source_type='PUZZLE_VERSION' AND st.purpose='ANALYSIS'
+       AND st.task_status='COMPLETED' AND st.solver_version=#{proofSolverVersion}
+       AND st.ruleset_version=v.ruleset_version AND st.state_hash=v.state_hash
+       AND st.state_snapshot=v.initial_state
+       AND sr.proof_status='PROVEN' AND sr.winner_side IN ('USER','BOT')
+     ORDER BY sr.id DESC LIMIT 1) AS winner_side
+  </sql>
+  <select id="search" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.id=COALESCE(p.published_version_id,p.latest_version_id) AND v.puzzle_id=p.id AND v.deleted=0
+    WHERE 1=1
+    <if test="scope != 'MANAGE'">AND p.deleted=0</if>
+    <if test="scope == 'PUBLISHED'">AND p.status='PUBLISHED'</if>
+    <if test="scope == 'MINE'">AND p.owner_id=#{ownerId}</if>
+    <if test="keyword != null and keyword != ''">AND v.title LIKE CONCAT('%',#{keyword},'%')</if>
+    ORDER BY p.update_time DESC,p.id DESC
+  </select>
+  <select id="find" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.puzzle_id=p.id AND v.deleted=0
+    WHERE p.id=#{id} AND p.deleted=0 AND v.id=COALESCE(#{versionId},IF(p.status='PUBLISHED',p.published_version_id,p.latest_version_id)) LIMIT 1
+  </select>
+  <select id="findIncludingDeleted" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.puzzle_id=p.id AND v.deleted=0
+    WHERE p.id=#{id} AND v.id=COALESCE(#{versionId},IF(p.status='PUBLISHED',p.published_version_id,p.latest_version_id)) LIMIT 1
+  </select>
+  <select id="findDuplicate" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.puzzle_id=p.id AND v.deleted=0
+    WHERE v.initial_state=CAST(#{stateJson} AS JSON)
+    <if test="excludePuzzleId != null">AND p.id&lt;&gt;#{excludePuzzleId}</if>
+    ORDER BY p.deleted ASC,p.update_time DESC,v.version_no DESC,p.id DESC LIMIT 1
+  </select>
+  <select id="findByVersionId" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.puzzle_id=p.id AND v.deleted=0
+    WHERE v.id=#{versionId} AND p.deleted=0 LIMIT 1
+  </select>
+  <select id="listPublishedVersions" resultType="com.nexushub.puzzle.persistence.PuzzleRow">
+    SELECT <include refid="columns"/> FROM puzzle p JOIN puzzle_version v ON v.id=p.published_version_id AND v.puzzle_id=p.id AND v.deleted=0
+    WHERE p.status='PUBLISHED' AND p.deleted=0 ORDER BY p.id ASC
+  </select>
+  <select id="nextPuzzleId" resultType="long">SELECT COALESCE(MAX(id),2000)+1 FROM puzzle</select>
+  <select id="nextVersionId" resultType="long">SELECT COALESCE(MAX(id),2100)+1 FROM puzzle_version</select>
+  <insert id="insertPuzzle">INSERT INTO puzzle(id,create_time,update_time,create_by,update_by,deleted,owner_id,status,row_version) VALUES(#{id},CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3),#{ownerId},#{ownerId},0,#{ownerId},'DRAFT',0)</insert>
+  <insert id="insertVersion">INSERT INTO puzzle_version(id,create_time,update_time,create_by,update_by,deleted,puzzle_id,version_no,title,description,tags,difficulty,allowed_first_seats,ruleset_version,schema_version,initial_state,state_hash) VALUES(#{versionId},CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3),1,1,0,#{id},#{versionNo},#{title},#{description},CAST(#{tagsJson} AS JSON),#{difficulty},CAST(#{allowedFirstSeatsJson} AS JSON),'CLASSIC_V1',1,CAST(#{initialStateJson} AS JSON),#{stateHash})</insert>
+  <update id="updateDraft">UPDATE puzzle SET update_time=CURRENT_TIMESTAMP(3),latest_version_id=#{versionId},row_version=row_version+1 WHERE id=#{id} AND row_version=#{expectedRowVersion} AND status&lt;&gt;'ARCHIVED' AND deleted=0</update>
+  <update id="publish">UPDATE puzzle SET update_time=CURRENT_TIMESTAMP(3),status='PUBLISHED',published_version_id=#{versionId},row_version=row_version+1 WHERE id=#{id} AND row_version=#{expectedRowVersion} AND latest_version_id=#{versionId} AND deleted=0</update>
+  <update id="archive">UPDATE puzzle SET update_time=CURRENT_TIMESTAMP(3),status='ARCHIVED',deleted=1,row_version=row_version+1 WHERE id=#{id} AND row_version=#{expectedRowVersion} AND deleted=0 AND status&lt;&gt;'ARCHIVED'</update>
+  <update id="restore">UPDATE puzzle SET update_time=CURRENT_TIMESTAMP(3),status='DRAFT',deleted=0,published_version_id=NULL,row_version=row_version+1 WHERE id=#{id} AND row_version=#{expectedRowVersion} AND deleted=1 AND status='ARCHIVED'</update>
+</mapper>
