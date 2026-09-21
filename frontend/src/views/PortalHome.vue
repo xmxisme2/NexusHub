@@ -40,7 +40,7 @@
       >
         <div class="system-card__top">
           <span class="card-symbol">◈</span
-          ><StatusBadge tone="info">EXTERNAL</StatusBadge>
+          ><StatusBadge tone="info">外部系统</StatusBadge>
         </div>
         <p class="eyebrow">OPERATIONS WORKBENCH</p>
         <h2>OpsDesk</h2>
