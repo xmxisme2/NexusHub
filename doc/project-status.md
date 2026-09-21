@@ -38,7 +38,7 @@
 - 题库范围已补齐：残局库默认展示当前用户的 `MINE` 范围，因此新建草稿可立即看到；可切换已发布视图，管理员额外拥有管理视图。`OPTIMAL` 对局现已接入逐回合实时 Minimax，TEST 局面已回归验证为 BOT 必胜。
 - 证明任务 V1 已接入：启动时为已发布版本自动补建 `MINIMAX_V1` 任务，固定最多 5 个 Worker 并发；本地 L001～L005 已完成任务，其中结果均为 `PROVEN`，胜方分别按局面写入，策略材料暂标 `PARTIAL`。
 - 已统一 Docker 运行配置：根目录 Compose 编排 `nexushub-mysql`、`nexushub-backend`、`nexushub-frontend`，后端使用 `docker` profile 通过服务名连接 MySQL，前端 Nginx 反向代理 `/api`。镜像构建和一次完整的登录、题库查询、建局链路已验证通过。
-- 已接入生产 Jenkins 发布：新增根目录 `Jenkinsfile` 和 `nexushub-deploy` 任务，使用受限 SSH 调用远程构建脚本，在 Docker 中执行 Java 21/Node 20 构建、测试、健康检查和失败回滚，不触碰现有 OpsDesk 服务。
+- 已接入生产 Jenkins 发布：保留根目录 `Jenkinsfile` 参考并配置 `nexushub-deploy` 任务，使用受限 SSH 调用远程构建脚本，在 Docker 中执行 Java 21/Node 20 构建、测试、健康检查和失败回滚；任务不依赖 Jenkins Git 插件拉取，避免 GitHub TLS 短暂中断阻塞发布，也不触碰现有 OpsDesk 服务。
 
 ## 已知问题
 
